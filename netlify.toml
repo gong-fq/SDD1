@@ -1,0 +1,79 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+  command = "echo 'SDD Academy - Static Site Build'"
+
+[dev]
+  command = "echo 'Starting Dev Server'"
+  port = 8888
+  target = "static"
+
+[functions]
+  node_bundler = "esbuild"
+  # 为聊天函数设置更长的超时时间（默认10秒，设置为30秒）
+  [[functions.handlers]]
+    pattern = "/chat"
+    function = "chat"
+    timeout = 30
+
+# 解决API路由问题
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# 单页应用路由 - 所有非静态资源请求都重定向到index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Language = ["zh-CN", "zh-TW", "en-US", "en"], Country = ["US", "CN", "TW"]}
+
+# 确保函数文件被正确处理
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# 静态资源缓存
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+
+# 防止404错误
+[[redirects]]
+  from = "/favicon.ico"
+  to = "https://emojicdn.elk.sh/%F0%9F%A4%96"
+  status = 302
+
+[[redirects]]
+  from = "/robots.txt"
+  to = "/robots.txt"
+  status = 200
+  conditions = {Path = "/robots.txt"}
+
+# 环境变量配置
+[context.production.environment]
+  NODE_VERSION = "18"
+  DEEPSEEK_API_KEY = "required"
+
+[context.deploy-preview.environment]
+  NODE_VERSION = "18"
+
+[context.branch-deploy.environment]
+  NODE_VERSION = "18"
