@@ -1546,12 +1546,17 @@ Step 3: 验证与迭代
   <div class="ai-assistant">
     <button class="ai-toggle" onclick="toggleAI()">🤖</button>
     <div class="ai-panel" id="aiPanel">
-      <h3>SDD智能助教 / AI Teaching Assistant</h3>
-      <div class="lang-selector">
-        <button class="lang-btn active" data-lang="auto" onclick="setLanguage('auto')">🌐 自动检测</button>
-        <button class="lang-btn" data-lang="zh" onclick="setLanguage('zh')">🇨🇳 中文</button>
-        <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇺🇸 English</button>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <div class="lang-selector">
+          <button class="lang-btn active" data-lang="auto" onclick="setLanguage('auto')">🌐 自动检测</button>
+          <button class="lang-btn" data-lang="zh" onclick="setLanguage('zh')">🇨🇳 中文</button>
+          <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">🇺🇸 English</button>
+        </div>
+        <button onclick="testConnection()" style="padding: 4px 8px; font-size: 0.8em; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">
+          🔧 测试连接
+        </button>
       </div>
+      <h3>SDD智能助教 / AI Teaching Assistant</h3>
       <div class="input-group">
         <input type="text" id="userInput" placeholder="输入问题或点击语音... / Type your question or use voice...">
         <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">🎤</button>
@@ -1563,7 +1568,7 @@ Step 3: 验证与迭代
   </div>
 
   <script>
-    // 切换课程
+    // ==================== 课程导航功能 ====================
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1574,7 +1579,7 @@ Step 3: 验证与迭代
       });
     });
 
-    // 检查答案
+    // 检查答案功能
     function checkAnswer(questionName, correctAnswer, button) {
       const selected = document.querySelector(`input[name="${questionName}"]:checked`);
       const resultDiv = button.nextElementSibling;
@@ -1593,7 +1598,7 @@ Step 3: 验证与迭代
       }
     }
 
-    // AI助手
+    // ==================== AI助手功能 ====================
     let isAIOpen = false;
     let isRecording = false;
     let recognition = null;
@@ -1616,11 +1621,61 @@ Step 3: 验证与迭代
           recognition.lang = 'en-US';
         }
       }
+      
+      // 更新输入框提示
+      const input = document.getElementById('userInput');
+      if (lang === 'zh') {
+        input.placeholder = '输入问题或点击语音...';
+      } else if (lang === 'en') {
+        input.placeholder = 'Type your question or use voice...';
+      } else {
+        input.placeholder = '输入问题或点击语音... / Type your question or use voice...';
+      }
     }
 
+    // 切换AI面板
     function toggleAI() {
       isAIOpen = !isAIOpen;
       document.getElementById('aiPanel').classList.toggle('active', isAIOpen);
+    }
+
+    // 测试连接函数
+    async function testConnection() {
+      console.log('开始连接测试...');
+      const responseDiv = document.getElementById('aiResponse');
+      responseDiv.innerHTML = '<div style="color: var(--highlight)">🔍 测试连接中...</div>';
+      
+      try {
+        // 测试简单的中文请求
+        const response = await fetch('/.netlify/functions/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: '测试连接' })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && !data.error) {
+          responseDiv.innerHTML = `<div style="color: var(--success)">
+            ✅ 连接测试成功！<br>
+            <small>语言: ${data.language || '未知'}<br>
+            响应时间: ${data.timestamp ? '正常' : '未知'}</small>
+          </div>`;
+        } else {
+          responseDiv.innerHTML = `<div style="color: var(--warning)">
+            ⚠️ 连接测试异常<br>
+            <small>状态: ${response.status}<br>
+            错误: ${data.error || '无'}<br>
+            回复: ${data.reply?.substring(0, 50) || '无'}</small>
+          </div>`;
+        }
+      } catch (error) {
+        responseDiv.innerHTML = `<div style="color: var(--warning)">
+          ❌ 连接测试失败<br>
+          <small>错误: ${error.message}</small>
+        </div>`;
+        console.error('连接测试失败:', error);
+      }
     }
 
     // 初始化语音识别
@@ -1691,11 +1746,18 @@ Step 3: 验证与迭代
       document.getElementById('voiceBtn').textContent = '🎤';
     }
 
+    // 发送消息到AI（改进版）
     async function sendMessage() {
       const input = document.getElementById('userInput');
       const message = input.value.trim();
       
-      if (!message) return;
+      if (!message) {
+        const msg = detectedLanguage === 'zh'
+          ? '请输入问题内容'
+          : 'Please enter your question';
+        alert(msg);
+        return;
+      }
 
       // 检测消息语言
       const hasChinese = /[\u4e00-\u9fa5]/.test(message);
@@ -1703,63 +1765,138 @@ Step 3: 验证与迭代
       detectedLanguage = messageLanguage;
 
       const responseDiv = document.getElementById('aiResponse');
-      const thinkingText = messageLanguage === 'zh' ? '思考中...' : 'Thinking...';
-      responseDiv.textContent = thinkingText;
+      // 中文问题提示可能需要更长时间
+      const thinkingText = messageLanguage === 'zh' 
+        ? '🤔 正在处理中文问题，可能需要稍长时间...' 
+        : '🤔 Thinking...';
+      responseDiv.innerHTML = `<div style="color: var(--highlight)">${thinkingText}</div>`;
       document.getElementById('ttsBtn').classList.remove('active');
 
+      // 禁用发送按钮防止重复发送
+      const sendBtn = document.querySelector('.send-btn');
+      const voiceBtn = document.getElementById('voiceBtn');
+      const originalBtnText = sendBtn.innerHTML;
+      const originalBtnTextVoice = voiceBtn.innerHTML;
+      
+      sendBtn.innerHTML = messageLanguage === 'zh' ? '发送中...' : 'Sending...';
+      sendBtn.disabled = true;
+      voiceBtn.disabled = true;
+      
       try {
-        // 添加30秒超时
+        // 为中文请求设置更长的超时时间（中文60秒，英文30秒）
+        const timeoutMs = messageLanguage === 'zh' ? 60000 : 30000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const timeoutId = setTimeout(() => {
+          console.log('请求超时，语言:', messageLanguage);
+          controller.abort();
+        }, timeoutMs);
+        
+        console.log('发送请求，语言:', messageLanguage, '超时:', timeoutMs);
         
         const response = await fetch('/.netlify/functions/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message }),
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ 
+            message: message,
+            timestamp: new Date().toISOString()
+          }),
           signal: controller.signal
         });
         
         clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`服务器返回错误: ${response.status}`);
-        }
-
-        const data = await response.json();
-        currentResponse = data.reply || (messageLanguage === 'zh' 
-          ? '抱歉，我暂时无法回答这个问题。' 
-          : 'Sorry, I cannot answer this question at the moment.');
         
-        // 存储返回的语言信息
+        // 检查响应状态
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (jsonError) {
+            errorData = {};
+          }
+          throw new Error(errorData.reply || `服务器错误 ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('收到响应，语言:', data.language);
+        
+        // 更新检测到的语言
         if (data.language) {
           detectedLanguage = data.language;
         }
         
-        responseDiv.textContent = currentResponse;
-        document.getElementById('ttsBtn').classList.add('active');
+        // 存储回复内容
+        currentResponse = data.reply || (messageLanguage === 'zh' 
+          ? '抱歉，我暂时无法回答这个问题。' 
+          : 'Sorry, I cannot answer this question at the moment.');
         
-        // 重置TTS按钮文本
-        updateTTSButton(false);
-      } catch (error) {
-        let errorText;
-        if (error.name === 'AbortError') {
-          errorText = messageLanguage === 'zh'
-            ? '⏱️ 请求超时，请重试。如果问题持续，请检查网络连接。'
-            : '⏱️ Request timeout, please try again. If the problem persists, check your network connection.';
-        } else if (error.message.includes('504') || error.message.includes('502')) {
-          errorText = messageLanguage === 'zh'
-            ? '⚠️ 服务器网关超时。可能原因：\n• API密钥未配置\n• DeepSeek服务繁忙\n请稍后重试或联系管理员。'
-            : '⚠️ Gateway timeout. Possible reasons:\n• API key not configured\n• DeepSeek service busy\nPlease retry later or contact admin.';
-        } else {
-          errorText = messageLanguage === 'zh'
-            ? `❌ 网络错误：${error.message}\n请检查：\n1. 网络连接是否正常\n2. Netlify环境变量DEEPSEEK_API_KEY是否已配置\n3. API密钥是否有效`
-            : `❌ Network error: ${error.message}\nPlease check:\n1. Network connection\n2. DEEPSEEK_API_KEY in Netlify env vars\n3. API key validity`;
+        // 显示回复
+        responseDiv.innerHTML = `<div style="white-space: pre-wrap; line-height: 1.6;">${currentResponse}</div>`;
+        
+        // 显示TTS按钮（如果不是错误）
+        if (!data.error) {
+          document.getElementById('ttsBtn').classList.add('active');
+          updateTTSButton(false);
         }
-        responseDiv.textContent = errorText;
-        console.error('AI request failed:', error);
+        
+      } catch (error) {
+        console.error('AI请求失败:', error);
+        
+        let errorHtml;
+        if (error.name === 'AbortError') {
+          errorHtml = messageLanguage === 'zh'
+            ? `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>⏱️ 中文处理超时</strong><br>
+                <small>中文问题处理需要更多时间。建议：</small>
+                <ul style="margin: 10px 0; padding-left: 20px; font-size: 0.9em;">
+                  <li>简化问题或分成几个小问题</li>
+                  <li>稍等几分钟后重试</li>
+                  <li>先尝试用英文提问（响应更快）</li>
+                </ul>
+               </div>`
+            : `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>⏱️ Request Timeout</strong><br>
+                <small>Please try:</small>
+                <ul style="margin: 10px 0; padding-left: 20px; font-size: 0.9em;">
+                  <li>Simplify your question</li>
+                  <li>Try again later</li>
+                </ul>
+               </div>`;
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          errorHtml = messageLanguage === 'zh'
+            ? `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>🌐 网络连接失败</strong><br>
+                <small>无法连接到服务器，请检查网络连接后重试。</small>
+               </div>`
+            : `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>🌐 Network Connection Failed</strong><br>
+                <small>Cannot connect to server. Please check your network connection.</small>
+               </div>`;
+        } else {
+          errorHtml = messageLanguage === 'zh'
+            ? `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>❌ 请求失败</strong><br>
+                <small>${error.message || '未知错误'}</small><br><br>
+                <small>请尝试刷新页面或稍后重试。</small>
+               </div>`
+            : `<div style="color: var(--warning); padding: 15px; border-left: 4px solid var(--warning);">
+                <strong>❌ Request Failed</strong><br>
+                <small>${error.message || 'Unknown error'}</small><br><br>
+                <small>Please try refreshing the page or try again later.</small>
+               </div>`;
+        }
+        
+        responseDiv.innerHTML = errorHtml;
+      } finally {
+        // 重新启用按钮
+        sendBtn.innerHTML = originalBtnText;
+        sendBtn.disabled = false;
+        voiceBtn.disabled = false;
+        voiceBtn.innerHTML = originalBtnTextVoice;
+        input.value = '';
       }
-
-      input.value = '';
     }
 
     // TTS功能
@@ -1855,6 +1992,13 @@ Step 3: 验证与迭代
     // 回车发送
     document.getElementById('userInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMessage();
+    });
+
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('SDD学院页面加载完成');
+      console.log('当前部署环境:', window.location.hostname);
+      console.log('API端点:', '/.netlify/functions/chat');
     });
   </script>
 </body>
