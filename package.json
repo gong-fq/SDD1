@@ -1,5 +1,14 @@
 {
-  "name": "vibe-coding-academy",
+  "name": "sdd-academy",
   "version": "1.0.0",
-  "private": true
+  "description": "SDD规格驱动开发学院",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "keywords": ["sdd", "education", "ai", "teaching"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
 }
